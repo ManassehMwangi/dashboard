@@ -1,6 +1,5 @@
 const express = require('express');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
@@ -69,11 +68,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(session({
-  store: new FileStore({
-    path: process.env.NODE_ENV === 'production' ? '/tmp/sessions' : './sessions',
-    ttl: 86400, // 1 day in seconds
-    reapInterval: 3600 // 1 hour cleanup interval
-  }),
   secret: process.env.SESSION_SECRET || 'un-habitat-secret-key',
   resave: false,
   saveUninitialized: false,
