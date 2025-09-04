@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
@@ -10,17 +11,30 @@ const PORT = process.env.PORT || 3000;
 
 // Database setup
 const dbPath = process.env.NODE_ENV === 'production' ? '/tmp/project_tracker.db' : 'project_tracker.db';
-const db = new sqlite3.Database(dbPath);
+console.log('Database path:', dbPath);
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database:', err.message);
+  } else {
+    console.log('Connected to SQLite database successfully');
+  }
+});
 
 // Initialize database tables
 db.serialize(() => {
+  console.log('Creating database tables...');
+  
   // Users table
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('un-habitat', 'donor', 'government'))
-  )`);
+  )`, (err) => {
+    if (err) console.error('Error creating users table:', err);
+    else console.log('Users table ready');
+  });
 
   // Projects table
   db.run(`CREATE TABLE IF NOT EXISTS projects (
@@ -29,7 +43,10 @@ db.serialize(() => {
     description TEXT,
     status TEXT DEFAULT 'Planning',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
+  )`, (err) => {
+    if (err) console.error('Error creating projects table:', err);
+    else console.log('Projects table ready');
+  });
 
   // Expenditures table
   db.run(`CREATE TABLE IF NOT EXISTS expenditures (
@@ -41,7 +58,10 @@ db.serialize(() => {
     date DATE NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(project_id) REFERENCES projects(id)
-  )`);
+  )`, (err) => {
+    if (err) console.error('Error creating expenditures table:', err);
+    else console.log('Expenditures table ready');
+  });
 });
 
 // Middleware
@@ -49,6 +69,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(session({
+  store: new FileStore({
+    path: process.env.NODE_ENV === 'production' ? '/tmp/sessions' : './sessions',
+    ttl: 86400, // 1 day in seconds
+    reapInterval: 3600 // 1 hour cleanup interval
+  }),
   secret: process.env.SESSION_SECRET || 'un-habitat-secret-key',
   resave: false,
   saveUninitialized: false,
